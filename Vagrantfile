@@ -15,6 +15,7 @@ Vagrant.configure('2') do |config|
 
   config.vm.provision :shell, path: 'provision-base.sh'
   config.vm.provision :shell, path: 'provision-go.sh'
+  config.vm.provision :shell, path: 'provision-tpm-info.sh'
   config.vm.provision :shell, path: 'provision-devid-provisioning-tool.sh'
 
   config.trigger.before :up do |trigger|

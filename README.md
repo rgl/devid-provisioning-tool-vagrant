@@ -21,6 +21,7 @@ Start the `provisioning-server`:
 ```bash
 vagrant ssh
 sudo -i
+tpm-info
 cd ~/devid-provisioning-tool
 ./bin/server/provisioning-server
 ```
