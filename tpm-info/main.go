@@ -121,19 +121,22 @@ func getSwtpmCertificates() (*table, error) {
 func main() {
 	t, err := getTPMInfo()
 	if err != nil {
-		log.Fatalf("failed to get TPM Info: %v", err)
+		log.Printf("WARN: Failed to get TPM Info: %v", err)
+	} else {
+		t.Render()
 	}
-	t.Render()
 
 	t, err = getTPMEndorsementKeys()
 	if err != nil {
-		log.Fatalf("failed to get TPM Endorsement Keys: %v", err)
+		log.Printf("WARN: Failed to get TPM Endorsement Keys: %v", err)
+	} else {
+		t.Render()
 	}
-	t.Render()
 
 	t, err = getSwtpmCertificates()
 	if err != nil {
-		log.Fatalf("failed to get SWTPM Certificates: %v", err)
+		log.Printf("WARN: Failed to get SWTPM Certificates: %v", err)
+	} else {
+		t.Render()
 	}
-	t.Render()
 }
