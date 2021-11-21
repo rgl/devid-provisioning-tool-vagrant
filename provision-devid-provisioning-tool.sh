@@ -50,7 +50,7 @@ make build
 # install the keys and certificates.
 install -m 644 ~/devid-provisioning-ca/ca.pem ~/devid-provisioning-tool/conf/agent/server-ca.crt
 install -m 644 ~/devid-provisioning-ca/ca.pem ~/devid-provisioning-tool/conf/server/provisioning-ca.crt
-install -m 640 ~/devid-provisioning-ca/ca-key.pem ~/devid-provisioning-tool/conf/server/provisioning-ca.key
+openssl pkcs8 -topk8 -nocrypt -in ~/devid-provisioning-ca/ca-key.pem -out ~/devid-provisioning-tool/conf/server/provisioning-ca.key
 install -m 644 ~/devid-provisioning-ca/server.pem ~/devid-provisioning-tool/conf/server/server.crt
 install -m 640 ~/devid-provisioning-ca/server-key.pem ~/devid-provisioning-tool/conf/server/server.key
 install -m 644 /vagrant/share/swtpm-localca-rootca-crt.pem ~/devid-provisioning-tool/conf/server/manufacturer-ca.crt
