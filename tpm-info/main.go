@@ -1,13 +1,19 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"crypto/x509"
+	"encoding/asn1"
+	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/go-attestation/attest"
 	"github.com/olekukonko/tablewriter"
@@ -26,6 +32,25 @@ func (t *table) Render() {
 	table.SetHeader(t.header)
 	table.AppendBulk(t.data)
 	table.Render()
+}
+
+func splitLines(s string) []string {
+	var lines []string
+	sc := bufio.NewScanner(strings.NewReader(s))
+	for sc.Scan() {
+		lines = append(lines, sc.Text())
+	}
+	return lines
+}
+
+func trimLines(text string, maxWith int) string {
+	lines := splitLines(text)
+	for i, v := range lines {
+		if len(v) > maxWith {
+			lines[i] = v[0:maxWith-5] + " (...)"
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func getCertificateText(der []byte) (string, error) {
@@ -118,6 +143,76 @@ func getSwtpmCertificates() (*table, error) {
 	}, nil
 }
 
+func loadCertificate(path string) (*x509.Certificate, error) {
+	raw, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode([]byte(raw))
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM from %s", path)
+	}
+	certificate, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse certificate from %s: %w", path, err)
+	}
+	return certificate, nil
+}
+
+func getDevIDCertificate() (*table, error) {
+	data := make([][]string, 0)
+
+	for _, p := range []string{"conf/server/provisioning-ca.crt", "out/devid-certificate.pem"} {
+		value, err := getCertificateFileText(p)
+		if err != nil {
+			value = fmt.Sprintf("ERROR: %v", err)
+		}
+		data = append(data, []string{path.Base(p), trimLines(string(value), 72)})
+	}
+
+	provisioningCACertificate, err := loadCertificate("conf/server/provisioning-ca.crt")
+	if err != nil {
+		return nil, err
+	}
+	devIDCertificate, err := loadCertificate("out/devid-certificate.pem")
+	if err != nil {
+		return nil, err
+	}
+
+	// verify whether the DevID certificate chain is valid (e.g. was signed by the provisioning CA).
+	devIDExtKeyUsageOID := asn1.ObjectIdentifier{2, 23, 133, 11, 1, 2}
+	hasDevIDExtKeyUsageOID := false
+	for _, v := range devIDCertificate.UnknownExtKeyUsage {
+		if v.Equal(devIDExtKeyUsageOID) {
+			hasDevIDExtKeyUsageOID = true
+		}
+	}
+	if !hasDevIDExtKeyUsageOID {
+		data = append(data, []string{"DevID Certificate Verify", fmt.Sprintf("Failed with: Does not have the DevID ExtKeyUsage OID %s", devIDExtKeyUsageOID)})
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(provisioningCACertificate)
+	chains, err := devIDCertificate.Verify(x509.VerifyOptions{
+		Roots:     roots,
+		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	})
+	if err != nil {
+		data = append(data, []string{"DevID Certificate Verify", fmt.Sprintf("Failed with: %v", err)})
+	} else {
+		data = append(data, []string{"DevID Certificate Verify", "Succeeded"})
+		for i, chain := range chains {
+			for j, c := range chain {
+				data = append(data, []string{fmt.Sprintf("DevID Certificate Chain #%d.%d", i, j), fmt.Sprintf("Subject: %s", c.Subject)})
+			}
+		}
+	}
+
+	return &table{
+		header: []string{"Certificate", "Content"},
+		data:   data,
+	}, nil
+}
+
 func main() {
 	t, err := getTPMInfo()
 	if err != nil {
@@ -136,6 +231,13 @@ func main() {
 	t, err = getSwtpmCertificates()
 	if err != nil {
 		log.Printf("WARN: Failed to get SWTPM Certificates: %v", err)
+	} else {
+		t.Render()
+	}
+
+	t, err = getDevIDCertificate()
+	if err != nil {
+		log.Printf("WARN: Failed to get DevID Certificate: %v", err)
 	} else {
 		t.Render()
 	}

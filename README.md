@@ -21,8 +21,10 @@ Start the `provisioning-server`:
 ```bash
 vagrant ssh
 sudo -i
-tpm-info
 cd ~/devid-provisioning-tool
+openssl x509 -in conf/server/manufacturer-ca.crt -text -noout
+openssl x509 -in conf/server/provisioning-ca.crt -text -noout
+openssl x509 -in conf/server/server.crt -text -noout
 ./bin/server/provisioning-server
 ```
 
@@ -33,4 +35,5 @@ vagrant ssh
 sudo -i
 cd ~/devid-provisioning-tool
 ./bin/agent/provisioning-agent
+tpm-info
 ```
