@@ -179,17 +179,21 @@ func getDevIDCertificate() (*table, error) {
 		return nil, err
 	}
 
-	// verify whether the DevID certificate chain is valid (e.g. was signed by the provisioning CA).
-	devIDExtKeyUsageOID := asn1.ObjectIdentifier{2, 23, 133, 11, 1, 2}
-	hasDevIDExtKeyUsageOID := false
+	// verify whether the DevID certificate has the CapVerifiedTPMFixed ExtKeyUsage OID.
+	// see DevID certificate creation at https://github.com/HewlettPackard/devid-provisioning-tool/blob/b912ef2c19571093dfacd0a6721dd1e6f6299768/cmd/server/main.go#L248-L250
+	// see CapVerifiedTPMFixed OID at https://github.com/HewlettPackard/devid-provisioning-tool/blob/b912ef2c19571093dfacd0a6721dd1e6f6299768/cmd/server/x509.go#L27
+	devIDCapVerifiedTPMFixedExtKeyUsageOID := asn1.ObjectIdentifier{2, 23, 133, 11, 1, 2}
+	hasDevIDCapVerifiedTPMFixedExtKeyUsageOID := false
 	for _, v := range devIDCertificate.UnknownExtKeyUsage {
-		if v.Equal(devIDExtKeyUsageOID) {
-			hasDevIDExtKeyUsageOID = true
+		if v.Equal(devIDCapVerifiedTPMFixedExtKeyUsageOID) {
+			hasDevIDCapVerifiedTPMFixedExtKeyUsageOID = true
 		}
 	}
-	if !hasDevIDExtKeyUsageOID {
-		data = append(data, []string{"DevID Certificate Verify", fmt.Sprintf("Failed with: Does not have the DevID ExtKeyUsage OID %s", devIDExtKeyUsageOID)})
+	if !hasDevIDCapVerifiedTPMFixedExtKeyUsageOID {
+		data = append(data, []string{"DevID Certificate Verify", fmt.Sprintf("Failed with: Does not have the DevID CapVerifiedTPMFixed ExtKeyUsage OID %s", devIDCapVerifiedTPMFixedExtKeyUsageOID)})
 	}
+
+	// verify whether the DevID certificate chain is valid (e.g. was signed by the provisioning CA).
 	roots := x509.NewCertPool()
 	roots.AddCert(provisioningCACertificate)
 	chains, err := devIDCertificate.Verify(x509.VerifyOptions{
